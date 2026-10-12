@@ -19,3 +19,10 @@
 - `schema.sql` `users` (user_id, password_hash, phone, role) does NOT match the backend `Users` entity (id, username, hashed_password, refresh_token, created_acc_at). Use `ddl-auto=update` on an empty DB, or align `users` before loading schema.sql.
 - Nothing links to `/vehicle-setup` yet; open it by URL.
 - Plate number dropped; add a column + DTO field if needed.
+
+## Dashboard rewrite
+- `DashboardPage.jsx` + new `DashboardPage.css` (no inline styles; reference JSX used only for layout/theme, no copied data).
+- Sidebar with "Add Vehicle" (-> `/vehicle-setup`), greeting from the logged-in user, stats and vehicle cards all computed from `GET /api/vehicles`.
+- New `GET /api/users/me` (`UserController`) returns name/username/email for the greeting.
+- Sessions, stations and wallet from the reference were left out: the backend has no endpoints for them, and showing static data was ruled out. Add them as those APIs appear.
+- Inline SVG icons instead of lucide-react (not installed).
