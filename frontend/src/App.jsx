@@ -1,11 +1,13 @@
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useNavigate } from 'react-router-dom';
 import IndexPage from './pages/IndexPage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import SignupPage from './pages/SignupPage.jsx';
 import DashboardPage from './pages/DashboardPage.jsx';
+import VehicleSetupPage from './pages/Vehiclesetuppage.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 
 export default function App() {
+  const navigate = useNavigate();
   return (
     <Routes>
       <Route path="/" element={<IndexPage />} />
@@ -16,6 +18,17 @@ export default function App() {
         element={
           <ProtectedRoute>
             <DashboardPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/vehicle-setup"
+        element={
+          <ProtectedRoute>
+            <VehicleSetupPage
+              onBack={() => navigate('/dashboard')}
+              onContinue={() => navigate('/dashboard')}
+            />
           </ProtectedRoute>
         }
       />

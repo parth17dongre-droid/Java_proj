@@ -1,12 +1,18 @@
 import { useState } from "react";
-import "./VehicleSetupPage.css";
+import { useNavigate } from "react-router-dom";
+import { apiFetch } from "../services/apiClient.js";
+import "./Vehiclesetuppage.css";
 
 const CONNECTORS = [
-    "Standard 3-pin (portable)",
-    "Bharat AC-001",
-    "Ather Grid",
-    "Ola Hypercharger",
-    "Other",
+    { value: "BHARAT_AC_001", label: "Bharat AC-001" },
+    { value: "BHARAT_DC_001", label: "Bharat DC-001" },
+    { value: "TYPE_1", label: "Type 1 (J1772)" },
+    { value: "TYPE_2", label: "Type 2 (Mennekes)" },
+    { value: "CCS1", label: "CCS1" },
+    { value: "CCS2", label: "CCS2" },
+    { value: "CHADEMO", label: "CHAdeMO" },
+    { value: "GB_T", label: "GB/T" },
+    { value: "TESLA", label: "Tesla" },
 ];
 
 const FEATURES = [
@@ -21,12 +27,13 @@ const initialForm = {
     year: "",
     connector: "",
     battery: "",
-    plate: "",
 };
 
 export default function VehicleSetupPage({ onBack, onContinue }) {
     const [form, setForm] = useState(initialForm);
     const [errors, setErrors] = useState({});
+    const [submitting, setSubmitting] = useState(false);
+    const navigate = useNavigate();
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -59,16 +66,34 @@ export default function VehicleSetupPage({ onBack, onContinue }) {
         return Object.keys(next).length === 0;
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         if (!validate()) return;
 
-        onContinue?.({
-            ...form,
-            year: Number(form.year),
-            battery: Number(form.battery),
-            plate: form.plate.trim().toUpperCase(),
-        });
+        setSubmitting(true);
+        try {
+            const res = await apiFetch(
+                "/api/vehicles",
+                {
+                    method: "POST",
+                    body: JSON.stringify({
+                        make: form.make.trim(),
+                        model: form.model.trim(),
+                        year: Number(form.year),
+                        batteryCapacityKwh: Number(form.battery),
+                        connectorTypes: [form.connector],
+                    }),
+                },
+                navigate
+            );
+            if (!res) return; // session expired, already redirected
+            if (!res.ok) throw new Error("Could not save vehicle (" + res.status + ")");
+            onContinue?.(await res.json());
+        } catch (err) {
+            setErrors({ form: err.message });
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     return (
@@ -85,7 +110,7 @@ export default function VehicleSetupPage({ onBack, onContinue }) {
                 </div>
 
                 <button type="button" className="vs-ghost-btn" onClick={onBack}>
-                    Back to sign in
+                    Back to dashboard
                 </button>
             </header>
 
@@ -163,8 +188,8 @@ export default function VehicleSetupPage({ onBack, onContinue }) {
                                 >
                                     <option value="">Select connector</option>
                                     {CONNECTORS.map((c) => (
-                                        <option key={c} value={c}>
-                                            {c}
+                                        <option key={c.value} value={c.value}>
+                                            {c.label}
                                         </option>
                                     ))}
                                 </select>
@@ -187,20 +212,12 @@ export default function VehicleSetupPage({ onBack, onContinue }) {
                                 </div>
                             </Field>
 
-                            <Field label="License plate" name="plate" optional>
-                                <input
-                                    id="plate"
-                                    name="plate"
-                                    className="vs-input"
-                                    placeholder="ABC 1234"
-                                    value={form.plate}
-                                    onChange={handleChange}
-                                />
-                            </Field>
                         </div>
 
-                        <button type="submit" className="vs-primary-btn">
-                            Continue to location
+                        {errors.form && <p className="vs-error">{errors.form}</p>}
+
+                        <button type="submit" className="vs-primary-btn" disabled={submitting}>
+                            {submitting ? "Saving..." : "Continue to location"}
                         </button>
                     </form>
                 </div>

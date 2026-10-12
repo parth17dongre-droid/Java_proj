@@ -23,8 +23,8 @@ public class VehicleService {
     }
 
     @Transactional
-    public VehicleResponse addVehicle(String email, VehicleRequest request) {
-        Users user = userRepository.findByEmail(email)
+    public VehicleResponse addVehicle(String username, VehicleRequest request) {
+        Users user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
         Vehicle vehicle = new Vehicle();
@@ -40,8 +40,8 @@ public class VehicleService {
     }
 
     @Transactional(readOnly = true)
-    public List<VehicleResponse> getMyVehicles(String email) {
-        Users user = userRepository.findByEmail(email)
+    public List<VehicleResponse> getMyVehicles(String username) {
+        Users user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
         return vehicleRepository.findByOwnerId(user.getId()).stream()
