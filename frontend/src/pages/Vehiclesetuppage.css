@@ -1,0 +1,340 @@
+:root {
+    --vs-bg: #0a0d12;
+    --vs-panel: #0f141b;
+    --vs-input: #141b24;
+    --vs-border: #1f2933;
+    --vs-accent: #00e5a0;
+    --vs-accent-glow: rgba(0, 229, 160, 0.25);
+    --vs-text: #e6edf3;
+    --vs-muted: #7b8794;
+    --vs-danger: #ff6b6b;
+}
+
+.vs-page {
+    min-height: 100vh;
+    background: var(--vs-bg);
+    color: var(--vs-text);
+    font-family: "Inter", system-ui, -apple-system, sans-serif;
+    background-image:
+        radial-gradient(circle at 50% 0%, rgba(0, 229, 160, 0.08), transparent 45%),
+        linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+    background-size: auto, 40px 40px, 40px 40px;
+}
+
+/* Top bar */
+.vs-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 28px;
+}
+
+.vs-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.vs-logo {
+    width: 36px;
+    height: 36px;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+    border: 1px solid var(--vs-border);
+    background: var(--vs-panel);
+    color: var(--vs-accent);
+}
+
+.vs-logo svg {
+    width: 18px;
+    height: 18px;
+}
+
+.vs-brand-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.1;
+}
+
+.vs-brand-name {
+    color: var(--vs-accent);
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-weight: 700;
+    font-size: 16px;
+}
+
+.vs-brand-sub {
+    color: var(--vs-muted);
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.vs-ghost-btn {
+    padding: 9px 16px;
+    border-radius: 10px;
+    border: 1px solid var(--vs-border);
+    background: var(--vs-panel);
+    color: var(--vs-text);
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.vs-ghost-btn:hover {
+    border-color: var(--vs-accent);
+}
+
+/* Heading */
+.vs-main {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 40px 20px 60px;
+    text-align: center;
+}
+
+.vs-step {
+    margin: 0;
+    color: var(--vs-accent);
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 12px;
+    letter-spacing: 0.15em;
+}
+
+.vs-title {
+    margin: 12px 0 8px;
+    font-size: clamp(24px, 4vw, 34px);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+}
+
+.vs-subtitle {
+    margin: 0 auto;
+    max-width: 520px;
+    color: var(--vs-muted);
+    font-size: 15px;
+}
+
+/* Card */
+.vs-card {
+    margin-top: 36px;
+    display: grid;
+    grid-template-columns: 1fr 1.4fr;
+    text-align: left;
+    border: 1px solid var(--vs-border);
+    border-radius: 18px;
+    background: var(--vs-panel);
+    overflow: hidden;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+}
+
+.vs-info {
+    position: relative;
+    padding: 36px 32px;
+    border-right: 1px solid var(--vs-border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.vs-info::after {
+    content: "";
+    position: absolute;
+    right: -60px;
+    bottom: -60px;
+    width: 220px;
+    height: 220px;
+    background: radial-gradient(circle, var(--vs-accent-glow), transparent 70%);
+    pointer-events: none;
+}
+
+.vs-info-icon {
+    width: 48px;
+    height: 48px;
+    display: grid;
+    place-items: center;
+    border-radius: 12px;
+    border: 1px solid rgba(0, 229, 160, 0.25);
+    background: rgba(0, 229, 160, 0.08);
+    color: var(--vs-accent);
+}
+
+.vs-info-icon svg {
+    width: 22px;
+    height: 22px;
+}
+
+.vs-info-title {
+    margin: 24px 0 10px;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.vs-info-text {
+    margin: 0;
+    color: var(--vs-muted);
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.vs-checks {
+    list-style: none;
+    margin: auto 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-top: 32px;
+}
+
+.vs-checks li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--vs-text);
+}
+
+.vs-check-icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    color: var(--vs-accent);
+}
+
+/* Form */
+.vs-form {
+    padding: 36px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.vs-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px 16px;
+}
+
+.vs-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.vs-label {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--vs-muted);
+}
+
+.vs-optional {
+    text-transform: none;
+    letter-spacing: 0;
+    opacity: 0.7;
+}
+
+.vs-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--vs-border);
+    background: var(--vs-input);
+    color: var(--vs-text);
+    font: inherit;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.vs-input::placeholder {
+    color: #3d4855;
+}
+
+.vs-input:focus {
+    border-color: var(--vs-accent);
+    box-shadow: 0 0 0 3px var(--vs-accent-glow);
+}
+
+.vs-select {
+    appearance: auto;
+}
+
+.vs-input-wrap {
+    position: relative;
+}
+
+.vs-input-wrap .vs-input {
+    padding-right: 52px;
+}
+
+.vs-suffix {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--vs-muted);
+    font-size: 12px;
+    pointer-events: none;
+}
+
+.has-error .vs-input {
+    border-color: var(--vs-danger);
+}
+
+.vs-error {
+    color: var(--vs-danger);
+    font-size: 12px;
+}
+
+.vs-primary-btn {
+    margin-top: auto;
+    width: 100%;
+    padding: 15px;
+    border: none;
+    border-radius: 12px;
+    background: var(--vs-accent);
+    color: #04110c;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 0 24px var(--vs-accent-glow);
+    transition: transform 0.15s, filter 0.2s;
+}
+
+.vs-primary-btn:hover {
+    filter: brightness(1.08);
+}
+
+.vs-primary-btn:active {
+    transform: scale(0.99);
+}
+
+/* Responsive */
+@media (max-width: 720px) {
+    .vs-card {
+        grid-template-columns: 1fr;
+    }
+
+    .vs-info {
+        border-right: none;
+        border-bottom: 1px solid var(--vs-border);
+        padding: 28px 24px;
+    }
+
+    .vs-form {
+        padding: 28px 24px;
+    }
+
+    .vs-grid {
+        grid-template-columns: 1fr;
+    }
+}
