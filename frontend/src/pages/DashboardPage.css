@@ -148,3 +148,19 @@
   .db-logout { padding: 8px 10px; }
   .db-content { padding: 18px; }
 }
+.ev-finder-grid {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 16px;
+}
+.slots-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+@media (max-width: 900px) {
+  .ev-finder-grid {
+    grid-template-columns: 1fr;
+  }
+}
