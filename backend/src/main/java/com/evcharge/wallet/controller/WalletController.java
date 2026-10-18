@@ -8,7 +8,6 @@ import com.evcharge.wallet.gateway.GatewayTransaction;
 import com.evcharge.wallet.gateway.PaymentGateway;
 import com.evcharge.wallet.gateway.PaymentMethod;
 import com.evcharge.wallet.gateway.UpiPayment;
-import com.evcharge.wallet.model.PendingBill;
 import com.evcharge.wallet.model.SettlementResult;
 import com.evcharge.wallet.model.TopUpResult;
 import com.evcharge.wallet.model.WalletTxn;
@@ -32,8 +31,7 @@ import org.springframework.web.bind.annotation.RestController;
  * REST endpoints for the wallet and payments.
  *
  * The logged-in user comes from the JWT, never from the request body. This code assumes
- * the JWT subject (Principal name) is the user's EMAIL. If your auth code stores the
- * numeric user id instead, change currentUserId() only.
+ * the JWT subject (Principal name) is the user's USERNAME.
  */
 @RestController
 @RequestMapping("/api")
@@ -59,11 +57,6 @@ public class WalletController {
         return walletService.getStatement(currentUserId(principal), limit);
     }
 
-    @GetMapping("/wallet/pending-bills")
-    public List<PendingBill> pendingBills(Principal principal) {
-        return walletService.getPendingBills(currentUserId(principal));
-    }
-
     @PostMapping("/wallet/topup")
     public TopUpResult topUp(Principal principal, @Valid @RequestBody TopUpRequest req) {
         PaymentMethod method = switch (req.method()) {
@@ -72,13 +65,6 @@ public class WalletController {
             default -> throw new PaymentException("Unsupported payment method");
         };
         return paymentService.topUp(currentUserId(principal), req.amount(), method);
-    }
-
-    /** Pay the advance of a bill from the wallet; this is what unlocks the charger. */
-    @PostMapping("/bills/{billId}/pay")
-    public Map<String, Object> payAdvance(Principal principal, @PathVariable long billId) {
-        BigDecimal newBalance = walletService.payAdvance(billId, currentUserId(principal));
-        return Map.of("billId", billId, "status", "PAID", "newBalance", newBalance);
     }
 
     /** Called when the charging session ends (admin / charger side). */
@@ -96,6 +82,6 @@ public class WalletController {
     }
 
     private long currentUserId(Principal principal) {
-        return walletService.userIdForEmail(principal.getName());
+        return walletService.userIdForUsername(principal.getName());
     }
 }

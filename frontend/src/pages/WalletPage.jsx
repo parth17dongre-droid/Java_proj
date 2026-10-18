@@ -1,23 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { apiJson } from '../services/apiClient.js';
 import './WalletPage.css';
 
-const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8080';
-// Change this if your LoginPage stores the JWT under a different key.
-const getToken = () => localStorage.getItem('token');
-
-async function api(path, options = {}) {
-  const res = await fetch(`${API}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${getToken()}`,
-      ...options.headers,
-    },
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.message || 'Something went wrong');
-  return data;
-}
+const api = (path, options) => apiJson(path, options, null);
 
 const rupees = (n) => `₹${Number(n).toFixed(2)}`;
 const isCredit = (type) => type === 'TOPUP' || type === 'REFUND';
@@ -27,7 +13,6 @@ const QUICK_AMOUNTS = [100, 500, 1000, 2000];
 export default function WalletPage() {
   const [balance, setBalance] = useState(null);
   const [txns, setTxns] = useState([]);
-  const [pending, setPending] = useState([]);
   const [amount, setAmount] = useState('500');
   const [method, setMethod] = useState('CARD');
   const [card, setCard] = useState({ cardNumber: '', expiry: '', cvv: '' });
@@ -37,14 +22,12 @@ export default function WalletPage() {
 
   const load = useCallback(async () => {
     try {
-      const [w, t, p] = await Promise.all([
+      const [w, t] = await Promise.all([
         api('/api/wallet'),
         api('/api/wallet/transactions?limit=20'),
-        api('/api/wallet/pending-bills'),
       ]);
       setBalance(w.balance);
       setTxns(t);
-      setPending(p);
     } catch (e) {
       setMessage({ type: 'error', text: e.message });
     }
@@ -71,22 +54,9 @@ export default function WalletPage() {
     }
   }
 
-  async function handlePay(billId) {
-    setBusy(true);
-    setMessage(null);
-    try {
-      const res = await api(`/api/bills/${billId}/pay`, { method: 'POST' });
-      setMessage({ type: 'ok', text: `Paid. Charger unlocks at your slot time. Balance ${rupees(res.newBalance)}` });
-      await load();
-    } catch (err) {
-      setMessage({ type: 'error', text: err.message });
-    } finally {
-      setBusy(false);
-    }
-  }
-
   return (
     <main className="wallet-page">
+      <Link to="/dashboard" className="back-link">← Back to dashboard</Link>
       <h1>My Wallet</h1>
 
       {message && <p className={`wallet-msg ${message.type}`}>{message.text}</p>}
@@ -95,26 +65,6 @@ export default function WalletPage() {
         <span>Available balance</span>
         <strong>{balance === null ? '…' : rupees(balance)}</strong>
       </section>
-
-      {pending.length > 0 && (
-        <section className="wallet-card">
-          <h2>Pay advance to unlock your charger</h2>
-          <ul className="pending-list">
-            {pending.map((b) => (
-              <li key={b.billId}>
-                <div>
-                  <strong>{b.chargerCode}</strong> ({b.chargerType}) · {when(b.startTime)}
-                  <br />
-                  <small>Advance {rupees(b.advanceAmount)}; unused amount is refunded after charging</small>
-                </div>
-                <button disabled={busy} onClick={() => handlePay(b.billId)}>
-                  Pay {rupees(b.advanceAmount)}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
 
       <section className="wallet-card">
         <h2>Add money</h2>
@@ -183,7 +133,7 @@ export default function WalletPage() {
               {txns.map((t) => (
                 <tr key={t.txnId}>
                   <td>{when(t.createdAt)}</td>
-                  <td>{t.type.replace('_', ' ')}</td>
+                  <td>{t.type.replace('_', ' ')}{t.billId ? ` (bill #${t.billId})` : ''}</td>
                   <td className={isCredit(t.type) ? 'credit' : 'debit'}>
                     {isCredit(t.type) ? '+' : '−'}{rupees(t.amount)}
                   </td>

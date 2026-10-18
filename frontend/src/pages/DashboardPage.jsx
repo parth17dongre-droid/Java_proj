@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../services/apiClient.js';
 import { evApi } from '../services/evApi.js';
+import BookingsPanel from '../components/BookingsPanel.jsx';
+import AdminPanel from '../components/AdminPanel.jsx';
 import './DashboardPage.css';
 
 const CONNECTOR_LABELS = {
@@ -18,6 +20,9 @@ const CONNECTOR_LABELS = {
 
 const PUNE_DEFAULT_LOCATION = { lat: 18.5204, lng: 73.8567 };
 
+const rupees = (n) => `₹${Number(n).toFixed(2)}`;
+const DURATIONS = [30, 60, 90, 120, 180];
+
 const greeting = () => {
   const h = new Date().getHours();
   return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
@@ -32,7 +37,9 @@ export default function DashboardPage() {
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' or 'finder'
+  const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'finder' | 'bookings' | 'admin'
+  const [balance, setBalance] = useState(null);
+  const [adminRefresh, setAdminRefresh] = useState(0); // bumped after a settle so the revenue table reloads
 
   // Ev Finder States
   const [stations, setStations] = useState([]);
@@ -40,11 +47,18 @@ export default function DashboardPage() {
   const [userConnector, setUserConnector] = useState('CCS2');
   const [stationsLoading, setStationsLoading] = useState(false);
 
-  // Soft Lock Booking States
-  const [activeLock, setActiveLock] = useState(null);
-  const [timeLeft, setTimeLeft] = useState(0);
+  // Slot hold / booking states
+  const [now, setNow] = useState(() => Date.now());
+  const [minutes, setMinutes] = useState(60);
+  const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState('');
   const [actionSuccess, setActionSuccess] = useState('');
+
+  const refreshBalance = async () => {
+    try {
+      setBalance((await evApi.getWalletBalance(navigate)).balance);
+    } catch { /* balance is a convenience; the wallet page shows errors */ }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -60,6 +74,7 @@ export default function DashboardPage() {
         const vehData = await vehRes.json();
         setUser(userData);
         setVehicles(vehData);
+        refreshBalance();
         
         if (vehData.length > 0 && vehData[0].connectorTypes?.length > 0) {
           setUserConnector(vehData[0].connectorTypes[0]);
@@ -88,22 +103,19 @@ export default function DashboardPage() {
     return () => clearInterval(interval);
   }, [activeTab, selectedStation?.id]);
 
-  // Countdown timer for active soft lock
+  // 1s tick for the hold countdown (only while the finder is open)
   useEffect(() => {
-    if (!activeLock) return;
-    const timer = setInterval(() => {
-      const remaining = Math.max(0, Math.floor((new Date(activeLock.lockExpiryTime).getTime() - Date.now()) / 1000));
-      setTimeLeft(remaining);
-
-      if (remaining === 0) {
-        setActionError('Your slot hold expired!');
-        setActiveLock(null);
-        fetchStations(PUNE_DEFAULT_LOCATION.lat, PUNE_DEFAULT_LOCATION.lng, false);
-      }
-    }, 1000);
-
+    if (activeTab !== 'finder') return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
-  }, [activeLock]);
+  }, [activeTab]);
+
+  const refreshStations = () => fetchStations(PUNE_DEFAULT_LOCATION.lat, PUNE_DEFAULT_LOCATION.lng, false);
+
+  // My current hold, wherever it is (survives a page refresh because it comes from the server)
+  const myHold = stations.flatMap((st) => st.slots.map((sl) => ({ ...sl, station: st })))
+    .find((sl) => sl.status === 'SOFT_LOCKED' && sl.lockedByUserId === user?.id);
+  const holdSeconds = myHold ? Math.max(0, Math.floor((new Date(myHold.lockExpiryTime).getTime() - now) / 1000)) : 0;
 
   const fetchStations = async (lat, lng, showLoading = true) => {
     if (showLoading) setStationsLoading(true);
@@ -123,45 +135,29 @@ export default function DashboardPage() {
     }
   };
 
-  const handleLockSlot = async (slotId) => {
-    if (!user?.id) return;
+  const act = async (fn, okText) => {
+    setBusy(true);
     setActionError('');
     setActionSuccess('');
     try {
-      const lockedSlot = await evApi.lockSlot(slotId, user.id, navigate);
-      setActiveLock({
-        slotId: lockedSlot.id,
-        lockExpiryTime: lockedSlot.lockExpiryTime
-      });
-      setActionSuccess(`Slot ${lockedSlot.slotNumber} held successfully! Complete booking within 5 minutes.`);
-      fetchStations(PUNE_DEFAULT_LOCATION.lat, PUNE_DEFAULT_LOCATION.lng, false);
+      const res = await fn();
+      if (okText) setActionSuccess(okText(res));
     } catch (err) {
       setActionError(err.message);
+    } finally {
+      setBusy(false);
+      refreshStations();
+      refreshBalance();
     }
   };
 
-  const handleConfirmBooking = async (slotId) => {
-    if (!user?.id) return;
-    setActionError('');
-    setActionSuccess('');
-    try {
-      await evApi.confirmBooking(slotId, user.id, navigate);
-      setActionSuccess('Booking confirmed successfully!');
-      setActiveLock(null);
-      fetchStations(PUNE_DEFAULT_LOCATION.lat, PUNE_DEFAULT_LOCATION.lng, false);
-    } catch (err) {
-      setActionError(err.message);
-    }
-  };
+  const handleLockSlot = (slot) =>
+    act(() => evApi.lockSlot(slot.id, navigate), () => `Slot ${slot.slotNumber} held for 5 minutes. Pick a duration and pay to book it.`);
 
-  const handleCancelHold = async (slotId) => {
-    if (!user?.id) return;
-    await evApi.releaseLock(slotId, user.id, navigate);
-    setActiveLock(null);
-    setActionSuccess('');
-    setActionError('');
-    fetchStations(PUNE_DEFAULT_LOCATION.lat, PUNE_DEFAULT_LOCATION.lng, false);
-  };
+  const handleBook = (slot) =>
+    act(() => evApi.book(slot.id, minutes, navigate), (b) => `Booked! ${rupees(b.advanceAmount)} advance paid from your wallet. Unused amount is refunded after charging.`);
+
+  const handleCancelHold = (slot) => act(() => evApi.releaseLock(slot.id, navigate));
 
   const handleLogout = async () => {
     try {
@@ -204,6 +200,23 @@ export default function DashboardPage() {
           >
             <MapPinIcon /> Find Stations
           </button>
+          <button
+            className={`db-nav-item ${activeTab === 'bookings' ? 'active-tab' : ''}`}
+            onClick={() => setActiveTab('bookings')}
+          >
+            <TicketIcon /> My Bookings
+          </button>
+          <button className="db-nav-item" onClick={() => navigate('/wallet')}>
+            <WalletIcon /> Wallet{balance !== null && <span className="db-nav-balance">{rupees(balance)}</span>}
+          </button>
+          {user?.role === 'ADMIN' && (
+            <button
+              className={`db-nav-item ${activeTab === 'admin' ? 'active-tab' : ''}`}
+              onClick={() => setActiveTab('admin')}
+            >
+              <ShieldIcon /> Admin
+            </button>
+          )}
         </nav>
 
         <div className="db-user">
@@ -223,7 +236,20 @@ export default function DashboardPage() {
       </aside>
 
       <main className="db-content">
-        {activeTab === 'dashboard' ? (
+        {activeTab === 'bookings' ? (
+          <>
+            <h1 className="db-title">My Bookings</h1>
+            <p className="db-subtitle">Start charging, cancel for a full refund, or see past sessions.</p>
+            <BookingsPanel onChange={refreshBalance} />
+          </>
+        ) : activeTab === 'admin' ? (
+          <>
+            <h1 className="db-title">Admin</h1>
+            <p className="db-subtitle">Enter the energy delivered to settle a bill. The unused advance is refunded, any extra is charged.</p>
+            <BookingsPanel admin onChange={() => setAdminRefresh((n) => n + 1)} />
+            <AdminPanel refreshKey={adminRefresh} />
+          </>
+        ) : activeTab === 'dashboard' ? (
           <>
             <h1 className="db-title">{greeting()}{firstName ? `, ${firstName}` : ''}.</h1>
             <p className="db-subtitle">
@@ -324,13 +350,21 @@ export default function DashboardPage() {
                       <h3 className="db-section-title">{selectedStation.name} Slots</h3>
                       <p style={{ fontSize: '13px', color: 'var(--db-muted)', marginBottom: '16px' }}>{selectedStation.address}</p>
                       
-                      {actionError && <p className="db-error" style={{ marginBottom: '12px' }}>{actionError}</p>}
+                      {actionError && (
+                        <p className="db-error" style={{ marginBottom: '12px' }}>
+                          {actionError}{' '}
+                          {/balance|add money/i.test(actionError) && (
+                            <a href="/wallet" onClick={(e) => { e.preventDefault(); navigate('/wallet'); }}>Add money</a>
+                          )}
+                        </p>
+                      )}
                       {actionSuccess && <p style={{ color: 'var(--db-green)', fontSize: '13px', marginBottom: '12px', fontWeight: '600' }}>{actionSuccess}</p>}
 
                       <div className="slots-grid">
                         {selectedStation.slots.map((slot) => {
                           const matches = slot.connectorType === userConnector;
-                          const isLockedByMe = activeLock?.slotId === slot.id || (slot.status === 'SOFT_LOCKED' && slot.lockedByUserId === user?.id);
+                          const isLockedByMe = slot.status === 'SOFT_LOCKED' && slot.lockedByUserId === user?.id;
+                          const cost = Number(slot.powerKw) * (minutes / 60) * Number(slot.ratePerKwh);
 
                           let statusBg = 'var(--db-surface-2)';
                           let statusText = 'Incompatible Plug';
@@ -343,8 +377,12 @@ export default function DashboardPage() {
                               statusColor = 'var(--db-green)';
                             } else if (slot.status === 'SOFT_LOCKED') {
                               statusBg = 'rgba(255, 193, 7, 0.12)';
-                              statusText = isLockedByMe ? `Held for you (${timeLeft}s)` : 'In Booking';
+                              statusText = isLockedByMe ? `Held for you (${holdSeconds}s)` : 'In Booking';
                               statusColor = '#ffc107';
+                            } else if (slot.status === 'MAINTENANCE') {
+                              statusBg = 'var(--db-surface-2)';
+                              statusText = 'Under maintenance';
+                              statusColor = 'var(--db-muted)';
                             } else {
                               statusBg = 'rgba(255, 107, 107, 0.1)';
                               statusText = 'Booked';
@@ -356,34 +394,44 @@ export default function DashboardPage() {
                             <div key={slot.id} style={{ background: statusBg, border: '1px solid var(--db-border)', borderRadius: '12px', padding: '14px', textAlign: 'center' }}>
                               <div style={{ fontWeight: '700', fontSize: '15px' }}>{slot.slotNumber}</div>
                               <div style={{ fontSize: '11px', color: 'var(--db-muted)', marginTop: '2px' }}>{CONNECTOR_LABELS[slot.connectorType] || slot.connectorType}</div>
+                              <div style={{ fontSize: '11px', color: 'var(--db-muted)' }}>{slot.chargerType} · {slot.powerKw} kW · {rupees(slot.ratePerKwh)}/kWh</div>
                               <div style={{ fontSize: '12px', fontWeight: '600', color: statusColor, marginTop: '8px' }}>{statusText}</div>
                               
-                              {matches && slot.status === 'AVAILABLE' && !activeLock && (
+                              {matches && slot.status === 'AVAILABLE' && !myHold && (
                                 <button 
                                   className="db-primary-btn" 
                                   style={{ marginTop: '10px', padding: '6px 10px', fontSize: '12px' }}
-                                  onClick={() => handleLockSlot(slot.id)}
+                                  disabled={busy}
+                                  onClick={() => handleLockSlot(slot)}
                                 >
                                   Select & Hold
                                 </button>
                               )}
 
                               {isLockedByMe && (
-                                <div style={{ display: 'flex', gap: '6px', marginTop: '10px' }}>
-                                  <button 
-                                    className="db-primary-btn" 
-                                    style={{ flex: 1, padding: '6px', fontSize: '11px' }}
-                                    onClick={() => handleConfirmBooking(slot.id)}
-                                  >
-                                    Confirm
-                                  </button>
-                                  <button 
-                                    className="db-ghost-btn" 
-                                    style={{ flex: 1, padding: '6px', fontSize: '11px', borderColor: 'var(--db-danger)', color: 'var(--db-danger)' }}
-                                    onClick={() => handleCancelHold(slot.id)}
-                                  >
-                                    Cancel
-                                  </button>
+                                <div style={{ marginTop: '10px' }}>
+                                  <select className="db-input" value={minutes} onChange={(e) => setMinutes(Number(e.target.value))}>
+                                    {DURATIONS.map((d) => <option key={d} value={d}>{d} min</option>)}
+                                  </select>
+                                  <div style={{ fontSize: '12px', margin: '6px 0' }}>Advance: <strong>{rupees(cost)}</strong></div>
+                                  <div style={{ display: 'flex', gap: '6px' }}>
+                                    <button
+                                      className="db-primary-btn"
+                                      style={{ flex: 1, padding: '6px', fontSize: '11px' }}
+                                      disabled={busy || holdSeconds === 0}
+                                      onClick={() => handleBook(slot)}
+                                    >
+                                      Pay & Book
+                                    </button>
+                                    <button
+                                      className="db-ghost-btn"
+                                      style={{ flex: 1, padding: '6px', fontSize: '11px', borderColor: 'var(--db-danger)', color: 'var(--db-danger)' }}
+                                      disabled={busy}
+                                      onClick={() => handleCancelHold(slot)}
+                                    >
+                                      Release
+                                    </button>
+                                  </div>
                                 </div>
                               )}
                             </div>
@@ -424,4 +472,7 @@ const PlusIcon = () => icon(<path d="M12 5v14M5 12h14" />);
 const GridIcon = () => icon(<path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z" />);
 const MapPinIcon = () => icon(<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0zM12 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />);
 const LogoutIcon = () => icon(<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />);
+const TicketIcon = () => icon(<path d="M3 9a2 2 0 0 0 0 6v3h18v-3a2 2 0 0 1 0-6V6H3zM13 6v12" />);
+const WalletIcon = () => icon(<path d="M3 7h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 7l3-3h12M16 14h2" />);
+const ShieldIcon = () => icon(<path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z" />);
 const CarIcon = () => icon(<path d="M5 17h14M3 13l2-6h14l2 6v4H3zM7 17v2M17 17v2" />);

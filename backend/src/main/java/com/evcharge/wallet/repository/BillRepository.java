@@ -1,7 +1,6 @@
 package com.evcharge.wallet.repository;
 
 import com.evcharge.wallet.model.BillRow;
-import com.evcharge.wallet.model.PendingBill;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
@@ -55,26 +54,6 @@ public class BillRepository {
         return rows.isEmpty() ? Optional.empty() : Optional.of(rows.get(0));
     }
 
-    public List<PendingBill> findPendingForUser(long userId) {
-        return jdbc.query(
-                "SELECT b.bill_id, c.charger_code, c.type AS charger_type, s.start_time, b.advance_amount " +
-                        "FROM bills b " +
-                        "JOIN bookings bk ON bk.booking_id = b.booking_id " +
-                        "JOIN slots s ON s.slot_id = bk.slot_id " +
-                        "JOIN chargers c ON c.charger_id = s.charger_id " +
-                        "WHERE bk.user_id = ? AND b.payment_status = 'PENDING' AND bk.status = 'BOOKED' " +
-                        "ORDER BY s.start_time ASC",
-                (rs, rowNum) -> new PendingBill(
-                        rs.getLong("bill_id"),
-                        rs.getString("charger_code"),
-                        rs.getString("charger_type"),
-                        rs.getTimestamp("start_time").toLocalDateTime(),
-                        rs.getBigDecimal("advance_amount")
-                ),
-                userId
-        );
-    }
-
     public boolean markPaid(long billId) {
         return jdbc.update("UPDATE bills SET payment_status = 'PAID', paid_at = NOW() WHERE bill_id = ? AND payment_status = 'PENDING'", billId) > 0;
     }
@@ -92,7 +71,8 @@ public class BillRepository {
 
     public void releaseSlot(long bookingId) {
         jdbc.update(
-                "UPDATE slots s JOIN bookings bk ON bk.slot_id = s.slot_id SET s.status = 'AVAILABLE' WHERE bk.booking_id = ?",
+                "UPDATE ev_charging_slots s JOIN bookings bk ON bk.slot_id = s.id " +
+                        "SET s.status = 'AVAILABLE', s.locked_by_user_id = NULL, s.lock_expiry_time = NULL WHERE bk.booking_id = ?",
                 bookingId
         );
     }

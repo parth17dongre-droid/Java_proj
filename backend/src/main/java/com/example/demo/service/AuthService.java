@@ -12,6 +12,7 @@ import com.example.demo.dto.SignupRequest;
 import com.example.demo.model.Users;
 import com.example.demo.repository.UserRepository;
 import com.example.demo.utils.CookieUtil;
+import com.evcharge.wallet.service.WalletService;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
@@ -26,15 +27,18 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final CookieUtil cookieUtil;
+    private final WalletService walletService;
 
     public AuthService(UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
                        JwtService jwtService,
-                       CookieUtil cookieUtil) {
+                       CookieUtil cookieUtil,
+                       WalletService walletService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.cookieUtil = cookieUtil;
+        this.walletService = walletService;
     }
 
     @Transactional
@@ -49,7 +53,9 @@ public class AuthService {
         user.setEmail(req.email());
         user.setHashedPassword(passwordEncoder.encode(req.password()));
 
-        return issueTokens(user, response);
+        AuthResponse result = issueTokens(user, response);
+        walletService.createWallet(user.getId());   // same transaction as the user insert
+        return result;
     }
 
     @Transactional

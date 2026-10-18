@@ -23,8 +23,8 @@ public class WalletRepository {
         jdbc.update("INSERT INTO wallets (user_id, balance, version) VALUES (?, 0.00, 0)", userId);
     }
 
-    public Optional<Long> findUserIdByEmail(String email) {
-        List<Long> ids = jdbc.query("SELECT user_id FROM users WHERE email = ?", (rs, rowNum) -> rs.getLong("user_id"), email);
+    public Optional<Long> findUserIdByUsername(String username) {
+        List<Long> ids = jdbc.query("SELECT id FROM users WHERE username = ?", (rs, rowNum) -> rs.getLong("id"), username);
         return ids.isEmpty() ? Optional.empty() : Optional.of(ids.get(0));
     }
 

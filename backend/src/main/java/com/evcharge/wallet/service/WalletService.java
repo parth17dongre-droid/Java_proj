@@ -5,7 +5,6 @@ import com.evcharge.wallet.exception.InsufficientBalanceException;
 import com.evcharge.wallet.exception.PaymentException;
 import com.evcharge.wallet.exception.ResourceNotFoundException;
 import com.evcharge.wallet.model.BillRow;
-import com.evcharge.wallet.model.PendingBill;
 import com.evcharge.wallet.model.SettlementResult;
 import com.evcharge.wallet.model.TxnType;
 import com.evcharge.wallet.model.WalletRow;
@@ -50,8 +49,8 @@ public class WalletService {
     }
 
     @Transactional(readOnly = true)
-    public Long userIdForEmail(String email) {
-        return wallets.findUserIdByEmail(email)
+    public Long userIdForUsername(String username) {
+        return wallets.findUserIdByUsername(username)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
     }
 
@@ -65,11 +64,6 @@ public class WalletService {
     @Transactional(readOnly = true)
     public List<WalletTxn> getStatement(long userId, int limit) {
         return wallets.findTransactions(userId, Math.max(1, Math.min(limit, 200)));
-    }
-
-    @Transactional(readOnly = true)
-    public List<PendingBill> getPendingBills(long userId) {
-        return bills.findPendingForUser(userId);
     }
 
     /** Removes an unused wallet (no ledger history). Returns false if it has history. */
@@ -91,8 +85,8 @@ public class WalletService {
 
     // ------------------------------------------------------------------ pay advance (unlocks charger)
     /**
-     * Pays the advance of a bill from the wallet. After this commits, the bill is PAID and
-     * the database trigger allows the booking to move to IN_PROGRESS (charger unlocked).
+     * Pays the advance of a bill from the wallet. Called by BookingService inside the booking
+     * transaction. Once the bill is PAID the database trigger allows IN_PROGRESS (charger unlocked).
      */
     @Transactional
     public BigDecimal payAdvance(long billId, long userId) {
@@ -131,7 +125,8 @@ public class WalletService {
     /**
      * Final billing on the energy actually consumed:  final = energy x rate.
      * Unused advance is refunded; if the session cost more than the advance, the extra
-     * is debited. Also marks the booking COMPLETED and frees the slot.
+     * is debited, up to the wallet balance (any remainder is reported as shortfall, not collected).
+     * Also marks the booking COMPLETED and frees the slot.
      */
     @Transactional
     public SettlementResult settleBill(long billId, BigDecimal energyKwh) {
@@ -153,6 +148,7 @@ public class WalletService {
         BigDecimal newBalance = wallet.balance();
         BigDecimal refunded = BigDecimal.ZERO.setScale(2);
         BigDecimal extra = BigDecimal.ZERO.setScale(2);
+        BigDecimal shortfall = BigDecimal.ZERO.setScale(2);
 
         if (difference.signum() > 0) {
             refunded = difference;
@@ -160,21 +156,24 @@ public class WalletService {
             wallets.updateBalance(wallet.walletId(), newBalance);
             wallets.insertTransaction(wallet.walletId(), billId, TxnType.REFUND, refunded, newBalance);
         } else if (difference.signum() < 0) {
-            extra = difference.negate();
-            if (newBalance.compareTo(extra) < 0) {
-                throw new InsufficientBalanceException("Wallet cannot cover the extra Rs " + extra);
+            // take what the wallet has; never leave the session unsettled because the balance is short
+            BigDecimal owed = difference.negate();
+            extra = owed.min(newBalance);
+            shortfall = owed.subtract(extra);
+            if (extra.signum() > 0) {
+                newBalance = newBalance.subtract(extra);
+                wallets.updateBalance(wallet.walletId(), newBalance);
+                wallets.insertTransaction(wallet.walletId(), billId, TxnType.FINAL_DEBIT, extra, newBalance);
             }
-            newBalance = newBalance.subtract(extra);
-            wallets.updateBalance(wallet.walletId(), newBalance);
-            wallets.insertTransaction(wallet.walletId(), billId, TxnType.FINAL_DEBIT, extra, newBalance);
         }
 
-        if (!bills.markSettled(billId, energy, finalAmount)) {
+        // the bill records what was actually collected, so revenue never counts unpaid money
+        if (!bills.markSettled(billId, energy, finalAmount.subtract(shortfall))) {
             throw new BillStateException("Bill could not be settled");
         }
         bills.markBookingCompleted(bill.bookingId());
         bills.releaseSlot(bill.bookingId());
-        return new SettlementResult(finalAmount, refunded, extra, newBalance);
+        return new SettlementResult(finalAmount, refunded, extra, shortfall, newBalance);
     }
 
     // ------------------------------------------------------------------ cancellation
