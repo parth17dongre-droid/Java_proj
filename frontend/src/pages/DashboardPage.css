@@ -164,28 +164,3 @@
     grid-template-columns: 1fr;
   }
 }
-/* Bookings, admin, wallet balance */
-.db-nav-balance { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--db-green); }
-.db-ok { color: var(--db-green); font-size: 13px; font-weight: 600; margin: 8px 0; }
-.db-input {
-  width: 100%; background: var(--db-surface-2); color: var(--db-text);
-  border: 1px solid var(--db-border); padding: 6px 8px; border-radius: 8px; font-size: 12px;
-}
-.db-bookings { display: grid; gap: 10px; margin-top: 12px; }
-.db-booking {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
-  padding: 12px 14px; border-radius: 10px; background: var(--db-surface-2); border: 1px solid var(--db-border);
-}
-.db-booking-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.db-booking-actions .db-input { width: 110px; }
-.db-small { width: auto; padding: 6px 12px; font-size: 12px; }
-.db-danger { border-color: var(--db-danger); color: var(--db-danger); }
-.db-badge { padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; border: 1px solid currentColor; }
-.db-badge.booked { color: #ffc107; }
-.db-badge.progress { color: #4fc3f7; }
-.db-badge.done { color: var(--db-green); }
-.db-badge.cancelled { color: var(--db-muted); }
-.db-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
-.db-table th { text-align: left; color: var(--db-muted); font-weight: 600; padding: 6px 8px; text-transform: capitalize; }
-.db-table td { padding: 8px; border-top: 1px solid var(--db-border); }
-.db-subtitle + .db-card { margin-top: 16px; }

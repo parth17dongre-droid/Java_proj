@@ -3,13 +3,13 @@ package com.example.demo.controller;
 import com.example.demo.dto.EvStationResponseDto;
 import com.example.demo.model.EvChargingSlot;
 import com.example.demo.service.EvStationService;
-import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/ev-stations")
+@CrossOrigin(origins = "*")
 public class EvStationController {
 
     private final EvStationService evStationService;
@@ -25,14 +25,18 @@ public class EvStationController {
         return evStationService.getNearbyStations(lat, lng);
     }
 
-    /** Holds the slot for 5 minutes; the user comes from the JWT, never from the request. */
     @PostMapping("/slots/{slotId}/lock")
-    public EvChargingSlot lockSlot(@PathVariable Long slotId, Authentication auth) {
-        return evStationService.acquireSoftLock(slotId, auth.getName());
+    public EvChargingSlot lockSlot(@PathVariable Long slotId, @RequestParam Long userId) {
+        return evStationService.acquireSoftLock(slotId, userId);
+    }
+
+    @PostMapping("/slots/{slotId}/confirm")
+    public EvChargingSlot confirmSlot(@PathVariable Long slotId, @RequestParam Long userId) {
+        return evStationService.confirmBooking(slotId, userId);
     }
 
     @PostMapping("/slots/{slotId}/release")
-    public void releaseSlot(@PathVariable Long slotId, Authentication auth) {
-        evStationService.releaseLock(slotId, auth.getName());
+    public void releaseSlot(@PathVariable Long slotId, @RequestParam Long userId) {
+        evStationService.releaseLock(slotId, userId);
     }
 }

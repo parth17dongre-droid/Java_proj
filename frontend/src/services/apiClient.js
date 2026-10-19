@@ -27,12 +27,3 @@ export async function apiFetch(url, options = {}, navigate) {
 
   return response;
 }
-
-// apiFetch + JSON parsing; throws Error(message) using the backend's "error"/"message" field.
-export async function apiJson(url, options = {}, navigate) {
-  const res = await apiFetch(url, options, navigate);
-  if (!res) throw new Error('Your session has expired. Please log in again.');
-  const data = await res.json().catch(() => null);
-  if (!res.ok) throw new Error(data?.error || data?.message || `Request failed (${res.status})`);
-  return data;
-}

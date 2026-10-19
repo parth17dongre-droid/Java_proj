@@ -30,9 +30,6 @@ public class Users {
     @Column(name = "hashed_password", nullable = false)
     private String hashedPassword;
 
-    @Column(nullable = false, length = 10, columnDefinition = "VARCHAR(10) NOT NULL DEFAULT 'USER'")
-    private String role = "USER";
-
     @Column(name = "created_acc_at", updatable = false)
     private LocalDateTime createdAccAt;
 
@@ -64,9 +61,6 @@ public class Users {
 
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
-
-    public String getRole() { return role; }
-    public void setRole(String role) { this.role = role; }
 
     public String getHashedPassword() { return hashedPassword; }
     public void setHashedPassword(String hashedPassword) { this.hashedPassword = hashedPassword; }

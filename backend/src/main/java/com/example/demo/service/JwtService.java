@@ -45,7 +45,6 @@ public class JwtService {
                 .id(UUID.randomUUID().toString())
                 .subject(user.getUsername())
                 .claim("uid", user.getId())
-                .claim("role", user.getRole())
                 .claim("type", type)
                 .issuedAt(new Date(now))
                 .expiration(new Date(now + ttlMs))

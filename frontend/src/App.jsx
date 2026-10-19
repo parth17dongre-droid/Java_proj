@@ -4,7 +4,6 @@ import LoginPage from './pages/LoginPage.jsx';
 import SignupPage from './pages/SignupPage.jsx';
 import DashboardPage from './pages/DashboardPage.jsx';
 import VehicleSetupPage from './pages/Vehiclesetuppage.jsx';
-import WalletPage from './pages/WalletPage.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 
 export default function App() {
@@ -19,14 +18,6 @@ export default function App() {
         element={
           <ProtectedRoute>
             <DashboardPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/wallet"
-        element={
-          <ProtectedRoute>
-            <WalletPage />
           </ProtectedRoute>
         }
       />

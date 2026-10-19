@@ -12,7 +12,7 @@ import com.example.demo.repository.UserRepository;
 @RequestMapping("/api/users")
 public class UserController {
 
-    public record MeResponse(Long id, String name, String username, String email, String role) {}
+    public record MeResponse(String name, String username, String email) {}
 
     private final UserRepository userRepository;
 
@@ -23,7 +23,7 @@ public class UserController {
     @GetMapping("/me")
     public ResponseEntity<MeResponse> me(Authentication authentication) {
         return userRepository.findByUsername(authentication.getName())
-                .map(u -> ResponseEntity.ok(new MeResponse(u.getId(), u.getName(), u.getUsername(), u.getEmail(), u.getRole())))
+                .map(u -> ResponseEntity.ok(new MeResponse(u.getName(), u.getUsername(), u.getEmail())))
                 .orElse(ResponseEntity.notFound().build());
     }
 }

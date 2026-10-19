@@ -5,14 +5,11 @@ import com.example.demo.model.EvChargingSlot;
 import com.example.demo.model.EvChargingStation;
 import com.example.demo.repository.EvChargingSlotRepository;
 import com.example.demo.repository.EvChargingStationRepository;
-import com.example.demo.repository.UserRepository;
 import com.example.demo.utils.GeoDistanceUtil;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.Comparator;
@@ -27,9 +24,6 @@ public class EvStationService {
 
     @Autowired
     private EvChargingSlotRepository slotRepository;
-
-    @Autowired
-    private UserRepository userRepository;
 
     public List<EvStationResponseDto> getNearbyStations(double userLat, double userLng) {
         List<EvChargingStation> stations = stationRepository.findAll();
@@ -54,32 +48,53 @@ public class EvStationService {
     }
 
     @Transactional
-    public EvChargingSlot acquireSoftLock(Long slotId, String username) {
-        Long userId = userId(username);
-        if (!slotRepository.existsById(slotId)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Slot not found");
+    public EvChargingSlot acquireSoftLock(Long slotId, Long userId) {
+        EvChargingSlot slot = slotRepository.findById(slotId)
+                .orElseThrow(() -> new RuntimeException("Slot not found"));
+
+        if (!"AVAILABLE".equals(slot.getStatus())) {
+            throw new RuntimeException("Slot is no longer available for booking!");
         }
-        if (slotRepository.tryLock(slotId, userId, LocalDateTime.now().plusMinutes(5)) == 0) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Slot is no longer available for booking!");
-        }
-        return slotRepository.findById(slotId).orElseThrow();
+
+        slot.setStatus("SOFT_LOCKED");
+        slot.setLockedByUserId(userId);
+        slot.setLockExpiryTime(LocalDateTime.now().plusMinutes(5));
+
+        return slotRepository.save(slot);
     }
 
     @Transactional
-    public void releaseLock(Long slotId, String username) {
-        Long userId = userId(username);
-        EvChargingSlot slot = slotRepository.findByIdForUpdate(slotId).orElse(null);
+    public EvChargingSlot confirmBooking(Long slotId, Long userId) {
+        EvChargingSlot slot = slotRepository.findById(slotId)
+                .orElseThrow(() -> new RuntimeException("Slot not found"));
+
+        if (!"SOFT_LOCKED".equals(slot.getStatus()) || !userId.equals(slot.getLockedByUserId())) {
+            throw new RuntimeException("You do not hold an active lock on this slot!");
+        }
+
+        if (slot.getLockExpiryTime().isBefore(LocalDateTime.now())) {
+            slot.setStatus("AVAILABLE");
+            slot.setLockedByUserId(null);
+            slot.setLockExpiryTime(null);
+            slotRepository.save(slot);
+            throw new RuntimeException("Lock expired! Please try booking again.");
+        }
+
+        slot.setStatus("BOOKED");
+        slot.setLockExpiryTime(null);
+
+        return slotRepository.save(slot);
+    }
+
+    @Transactional
+    public void releaseLock(Long slotId, Long userId) {
+        EvChargingSlot slot = slotRepository.findById(slotId).orElse(null);
         if (slot != null && "SOFT_LOCKED".equals(slot.getStatus()) && userId.equals(slot.getLockedByUserId())) {
             slot.setStatus("AVAILABLE");
             slot.setLockedByUserId(null);
             slot.setLockExpiryTime(null);
+            slotRepository.save(slot);
         }
-    }
-
-    private Long userId(String username) {
-        return userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"))
-                .getId();
     }
 
     @Scheduled(fixedRate = 10000)
